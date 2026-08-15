@@ -1401,14 +1401,20 @@ base::CallbackListSubscription Session::AddAIHandlerChangedCallback(
 
 static void StartPreconnectOnUI(ElectronBrowserContext* browser_context,
                                 const GURL& url,
-                                int num_sockets_to_preconnect) {
+                                int num_sockets_to_preconnect,
+                                bool allow_credentials) {
   url::Origin origin = url::Origin::Create(url);
-  std::vector<content::PreconnectRequest> requests = {
-      {url::Origin::Create(url), num_sockets_to_preconnect,
-       net::NetworkAnonymizationKey::CreateSameSite(
-           net::SchemefulSite(origin))}};
+  content::PreconnectRequest request(
+      origin, num_sockets_to_preconnect,
+      net::NetworkAnonymizationKey::CreateSameSite(net::SchemefulSite(origin)));
+  // Sockets are pooled by privacy mode, so a preconnected socket only serves
+  // requests made with the same credentials mode: uncredentialed sockets for
+  // CORS requests without credentials (e.g. `crossorigin` scripts and fonts),
+  // credentialed ones for navigations and same-origin fetches.
+  request.allow_credentials = allow_credentials;
   browser_context->GetPreconnectManager()->Start(
-      url, requests, predictors::kLoadingPredictorPreconnectTrafficAnnotation);
+      url, {request},
+      predictors::kLoadingPredictorPreconnectTrafficAnnotation);
 }
 
 void Session::Preconnect(const gin_helper::Dictionary& options,
@@ -1432,11 +1438,14 @@ void Session::Preconnect(const gin_helper::Dictionary& options,
     }
   }
 
+  bool allow_credentials = true;
+  options.Get("allowCredentials", &allow_credentials);
+
   DCHECK_GT(num_sockets_to_preconnect, 0);
   content::GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE,
       base::BindOnce(&StartPreconnectOnUI, base::Unretained(browser_context()),
-                     url, num_sockets_to_preconnect));
+                     url, num_sockets_to_preconnect, allow_credentials));
 }
 
 v8::Local<v8::Promise> Session::CloseAllConnections() {

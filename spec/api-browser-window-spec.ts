@@ -3090,6 +3090,21 @@ describe('BrowserWindow module', () => {
       expect(connections).to.equal(1);
     });
 
+    it('preconnect() sockets serve only requests with the same credentials mode', async () => {
+      w = new BrowserWindow({ show: false });
+      await w.loadURL('about:blank');
+      // A credentialed navigation cannot ride an uncredentialed socket: the
+      // preconnect opens 2, the navigation a third.
+      w.webContents.session.preconnect({ url, numSockets: 2, allowCredentials: false });
+      await setTimeout(500);
+      expect(connections).to.equal(2);
+      await w.loadURL(url);
+      expect(connections).to.equal(3);
+      // An uncredentialed CORS fetch from the page does ride one of them.
+      await w.webContents.executeJavaScript(`fetch(${JSON.stringify(url + '/cors')}, { credentials: 'omit', cache: 'no-store' }).then(r => r.text())`);
+      expect(connections).to.equal(3);
+    });
+
     it('parses <link rel=preconnect>', async () => {
       w = new BrowserWindow({ show: true });
       const p = once(w.webContents.session, 'preconnect');

@@ -862,6 +862,12 @@ win.webContents.session.enableNetworkEmulation({ offline: true })
 * `options` Object
   * `url` string - URL for preconnect. Only the origin is relevant for opening the socket.
   * `numSockets` number (optional) - number of sockets to preconnect. Must be between 1 and 6. Defaults to 1.
+  * `allowCredentials` boolean (optional) - whether the preconnected sockets may
+    carry credentials (cookies, client certificates). Sockets are pooled by
+    credentials mode, so a socket opened with `true` only serves requests that
+    send credentials (navigations, same-origin fetches) and one opened with
+    `false` only serves requests that omit them (for example `crossorigin`
+    scripts, stylesheets and fonts from another origin). Defaults to `true`.
 
 Preconnects the given number of sockets to an origin.
 
